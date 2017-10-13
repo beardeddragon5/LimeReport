@@ -37,12 +37,57 @@
 
 namespace LimeReport {
 
-bool bandSortBandLessThenByIndex(const BandDesignIntf *c1, const BandDesignIntf *c2){
-    if (c1->bandIndex()!=c2->bandIndex()){
-        return c1->bandIndex()<c2->bandIndex();
-    } else {
-        return c1->bandType()<c2->bandType();
+
+QList<BandDesignIntf*> bandSort(QList<BandDesignIntf*> bands){
+    QList<BandDesignIntf*> sorted;
+    foreach (BandDesignIntf* band, bands) {
+        if (band->bandType() == BandDesignIntf::PageHeader) {
+            sorted.append(band);
+        }
     }
+    foreach (BandDesignIntf* band, bands) {
+        if (band->bandType() == BandDesignIntf::ReportHeader) {
+            sorted.append(band);
+        }
+    }
+
+    QList<BandDesignIntf*> dataBands;
+    foreach (BandDesignIntf* band, bands) {
+        if (band->bandType() == BandDesignIntf::Data) {
+            dataBands.append(band);
+        }
+    }
+
+    qSort(dataBands.begin(), dataBands.end(), [](const BandDesignIntf* c1, const BandDesignIntf* c2) -> bool {
+        return c1->bandIndex() < c2->bandIndex();
+    });
+
+    foreach( BandDesignIntf* band, dataBands) {
+        QList<BandDesignIntf *> childs = QList<BandDesignIntf*>(band->childBands());
+        childs.append(band);
+        qSort(childs.begin(), childs.end(), [](const BandDesignIntf* c1, const BandDesignIntf* c2) -> bool {
+            return c1->bandType() < c2->bandType();
+        });
+        sorted.append(childs);
+    }
+
+
+    foreach (BandDesignIntf* band, bands) {
+        if (band->bandType() == BandDesignIntf::ReportFooter) {
+            sorted.append(band);
+        }
+    }
+    foreach (BandDesignIntf* band, bands) {
+        if (band->bandType() == BandDesignIntf::TearOffBand) {
+            sorted.append(band);
+        }
+    }
+    foreach (BandDesignIntf* band, bands) {
+        if (band->bandType() == BandDesignIntf::PageFooter) {
+            sorted.append(band);
+        }
+    }
+    return sorted;
 }
 
 PageItemDesignIntf::PageItemDesignIntf(QObject *owner, QGraphicsItem *parent) :
@@ -200,7 +245,9 @@ int PageItemDesignIntf::calcBandIndex(BandDesignIntf::BandsType bandType, BandDe
     groupFooterIgnoredBands << BandDesignIntf::DataFooter << BandDesignIntf::GroupHeader;
 
     int bandIndex=-1;
-    qSort(m_bands.begin(),m_bands.end(),bandSortBandLessThenByIndex);
+
+    m_bands = bandSort(m_bands);
+    // qSort(m_bands.begin(),m_bands.end(),bandSortBandLessThenByIndex);
     foreach(BandDesignIntf* band,m_bands){
         if ((band->bandType() == BandDesignIntf::GroupHeader) && ( band->bandType() > bandType)) break;
         if ((band->bandType() <= bandType)){
@@ -364,7 +411,8 @@ void PageItemDesignIntf::relocateBands()
 
     QVector<qreal> posByColumn;
 
-    qSort(m_bands.begin(),m_bands.end(),bandSortBandLessThenByIndex);
+    m_bands = bandSort(m_bands);
+    // qSort(m_bands.begin(),m_bands.end(),bandSortBandLessThenByIndex);
 
     int bandIndex = 0;
     if (!(itemMode() & DesignMode)){
@@ -429,7 +477,8 @@ int PageItemDesignIntf::dataBandCount()
 BandDesignIntf *PageItemDesignIntf::dataBandAt(int index)
 {
     int count=0;
-    qSort(m_bands.begin(),m_bands.end(),bandSortBandLessThenByIndex);
+    m_bands = bandSort(m_bands);
+    // qSort(m_bands.begin(),m_bands.end(),bandSortBandLessThenByIndex);
     foreach(BandDesignIntf* band,m_bands){
         if (band->bandType()==BandDesignIntf::Data){
             if(count==index) return band;
